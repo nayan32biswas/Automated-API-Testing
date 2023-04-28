@@ -1,0 +1,41 @@
+version: "3"
+services:
+  influxdb:
+    image: influxdb:latest
+    ports:
+      - 8086:8086
+    volumes:
+      - influx-db:/var/lib/influxdb2
+    environment:
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=adminpass
+      - DOCKER_INFLUXDB_INIT_ORG=initOrg
+      - DOCKER_INFLUXDB_INIT_BUCKET=initBucket
+
+  grafana:
+    image: grafana/grafana
+    links:
+      - influxdb
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=adminpass
+      # - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      # - GF_AUTH_ANONYMOUS_ENABLED=true
+      # - GF_AUTH_BASIC_ENABLED=false
+
+  k6:
+    image: loadimpact/k6
+    ports:
+      - "6565:6565"
+    volumes:
+      - "./tests:/tests"
+    env_file: .env
+    # environment:
+    #   - K6_OUT=influxdb=http://influxdb:8086/k6
+    # command: "version"
+
+volumes:
+  influx-db:
+    driver: local
