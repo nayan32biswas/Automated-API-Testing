@@ -2,8 +2,8 @@ import http from "k6/http";
 import { sleep, check } from "k6";
 
 export const options = {
-  vus: 10,
-  duration: "30s",
+  vus: 2,
+  duration: "1s",
 };
 
 export default function () {
@@ -13,6 +13,10 @@ export default function () {
 const API_URL = __ENV.API_URL;
 const CHARACTERS =
   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+const TOTAL_POST = 100;
+const DEFAULT_LIMIT = 20;
+
+console.log({ API_URL });
 
 function randomStr(length) {
   let result = "";
@@ -113,7 +117,7 @@ function testFunction() {
       password: userData.password,
     });
 
-    sleep(1)
+    sleep(1);
     let tokenRes = http.post(`${API_URL}/api/v1/token`, payload);
     check(tokenRes, {
       "Get token": (r) => r.status === 200,
@@ -146,8 +150,10 @@ function testFunction() {
     }
   }
 
+  const page = randomInt(1, TOTAL_POST / DEFAULT_LIMIT + 1);
+
   let postsRes = http.get(
-    `${API_URL}/api/v1/posts?page=${randomInt(1, 1000)}&limit=50`,
+    `${API_URL}/api/v1/posts?page=${page}&limit=${DEFAULT_LIMIT}`,
     reqOptions
   );
   let postObj = getRandomObj(postsRes.json().results);
@@ -155,13 +161,13 @@ function testFunction() {
   if (!isEmpty(postObj)) {
     sleep(1);
     let postDetailsRes = http.get(
-      `${API_URL}/api/v1/posts/${postObj.id}`,
+      `${API_URL}/api/v1/posts/${postObj.slug}`,
       reqOptions
     );
     let post = postDetailsRes.json();
 
     let commentsRes = http.get(
-      `${API_URL}/api/v1/posts/${post.id}/comments?page=1&limit=20`,
+      `${API_URL}/api/v1/posts/${post.slug}/comments?page=1&limit=${DEFAULT_LIMIT}`,
       reqOptions
     );
     let comments = commentsRes.json().results;
@@ -173,7 +179,7 @@ function testFunction() {
 
       sleep(1);
       let newCommentRes = http.post(
-        `${API_URL}/api/v1/posts/${post.id}/comments`,
+        `${API_URL}/api/v1/posts/${post.slug}/comments`,
         payload,
         reqOptions
       );
@@ -195,7 +201,7 @@ function testFunction() {
       for (let i = 0; i < randomInt(1, 5); i++) {
         sleep(1);
         let newReplyRes = http.post(
-          `${API_URL}/api/v1/posts/${post.id}/comments/${comment.id}/replies`,
+          `${API_URL}/api/v1/posts/${post.slug}/comments/${comment.id}/replies`,
           payload,
           reqOptions
         );
@@ -212,7 +218,7 @@ function testFunction() {
 
         sleep(1);
         let updateCommentRes = http.put(
-          `${API_URL}/api/v1/posts/${post.id}/comments/${comment.id}`,
+          `${API_URL}/api/v1/posts/${post.slug}/comments/${comment.id}`,
           payload,
           reqOptions
         );
@@ -230,7 +236,7 @@ function testFunction() {
 
           sleep(0.5);
           let updateReplyRes = http.put(
-            `${API_URL}/api/v1/posts/${post.id}/comments/${comment.id}/replies/${reply.id}`,
+            `${API_URL}/api/v1/posts/${post.slug}/comments/${comment.id}/replies/${reply.id}`,
             payload,
             reqOptions
           );
@@ -251,7 +257,7 @@ function testFunction() {
           // Delete replies before deleting comment
           sleep(0.5);
           let delReplyRes = http.del(
-            `${API_URL}/api/v1/posts/${post.id}/comments/${comment.id}/replies/${reply.id}`,
+            `${API_URL}/api/v1/posts/${post.slug}/comments/${comment.id}/replies/${reply.id}`,
             {},
             reqOptions
           );
@@ -262,7 +268,7 @@ function testFunction() {
 
         sleep(1);
         let delCommentRes = http.del(
-          `${API_URL}/api/v1/posts/${post.id}/comments/${comment.id}`,
+          `${API_URL}/api/v1/posts/${post.slug}/comments/${comment.id}`,
           {},
           reqOptions
         );
@@ -275,7 +281,7 @@ function testFunction() {
 
   if (isAuthenticated === true && Math.random() <= 0.5) {
     // 10% or user will create new posts
-    
+
     sleep(1);
     let tag_ids = [];
     for (let i = 0; i < randomInt(1, 10); i++) {
@@ -283,7 +289,7 @@ function testFunction() {
         name: randomStr(2, 3),
       });
       let tagRes = http.post(`${API_URL}/api/v1/tags`, payload, reqOptions);
-      tag_ids.push(tagRes.json().id);
+      tag_ids.push(tagRes.json().slug);
     }
 
     payload = JSON.stringify({
@@ -311,7 +317,7 @@ function testFunction() {
 
         sleep(1);
         let updatePostRes = http.patch(
-          `${API_URL}/api/v1/posts/${post.id}`,
+          `${API_URL}/api/v1/posts/${post.slug}`,
           payload,
           reqOptions
         );
@@ -326,7 +332,7 @@ function testFunction() {
 
       sleep(1);
       let delPostRes = http.del(
-        `${API_URL}/api/v1/posts/${post.id}`,
+        `${API_URL}/api/v1/posts/${post.slug}`,
         {},
         reqOptions
       );
