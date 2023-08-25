@@ -2,8 +2,8 @@ import http from "k6/http";
 import { sleep, check } from "k6";
 
 export const options = {
-  vus: 2,
-  duration: "1s",
+  vus: 50,
+  duration: "30s",
 };
 
 export default function () {
@@ -15,8 +15,6 @@ const CHARACTERS =
   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 const TOTAL_POST = 100;
 const DEFAULT_LIMIT = 20;
-
-console.log({ API_URL });
 
 function randomStr(length) {
   let result = "";
@@ -140,7 +138,7 @@ function testFunction() {
       });
       sleep(1);
       let userUpdateRes = http.patch(
-        `${API_URL}/api/v1/update-user`,
+        `${API_URL}/api/v1/update-me`,
         payload,
         reqOptions
       );
@@ -288,13 +286,13 @@ function testFunction() {
       payload = JSON.stringify({
         name: randomStr(2, 3),
       });
-      let tagRes = http.post(`${API_URL}/api/v1/tags`, payload, reqOptions);
+      let tagRes = http.post(`${API_URL}/api/v1/topics`, payload, reqOptions);
       tag_ids.push(tagRes.json().slug);
     }
 
     payload = JSON.stringify({
       title: getDescription(randomInt(2, 10)),
-      publish_at: new Date().toISOString(),
+      publish_now: Math.random() <= 0.5,
       short_description: null,
       description: getDescription(randomInt(10, 50)),
       cover_image: null,
