@@ -26,7 +26,7 @@ services:
       # - GF_AUTH_BASIC_ENABLED=false
 
   k6:
-    image: loadimpact/k6
+    image: grafana/k6
     ports:
       - "6565:6565"
     volumes:
