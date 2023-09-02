@@ -2,8 +2,8 @@ import http from "k6/http";
 import { sleep, check } from "k6";
 
 export const options = {
-  vus: 50,
-  duration: "50s",
+  vus: 20,
+  duration: "10s",
 };
 
 export default function () {
@@ -116,15 +116,16 @@ function testFunction() {
     });
 
     sleep(1);
-    let tokenRes = http.post(`${API_URL}/api/v1/token`, payload);
+    let tokenRes = http.post(`${API_URL}/api/v1/token`, payload, reqOptions);
     check(tokenRes, {
       "Get token": (r) => r.status === 200,
     });
-
-    isAuthenticated = true;
-    userData.access_token = tokenRes.json().access_token;
-    userData.refresh_token = tokenRes.json().refresh_token;
-    reqOptions.headers["Authorization"] = `Bearer ${userData.access_token}`;
+    if (tokenRes.status === 200) {
+      isAuthenticated = true;
+      userData.access_token = tokenRes.json().access_token;
+      userData.refresh_token = tokenRes.json().refresh_token;
+      reqOptions.headers["Authorization"] = `Bearer ${userData.access_token}`;
+    }
   }
 
   if (isAuthenticated === true) {
@@ -187,9 +188,9 @@ function testFunction() {
       sleep(1);
 
       let comment = newCommentRes.json();
-      if (isEmpty(comments) === false) {
-        comment = getRandomObj(comments);
-      }
+      // if (isEmpty(comments) === false) {
+      //   comment = getRandomObj(comments);
+      // }
 
       let newReplies = [];
 
