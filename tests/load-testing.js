@@ -2,8 +2,8 @@ import http from "k6/http";
 import { sleep, check } from "k6";
 
 export const options = {
-  vus: 30,
-  duration: "60s",
+  vus: 10,
+  duration: "10s",
 };
 
 export default function () {
@@ -125,6 +125,8 @@ function testFunction() {
       userData.access_token = tokenRes.json().access_token;
       userData.refresh_token = tokenRes.json().refresh_token;
       reqOptions.headers["Authorization"] = `Bearer ${userData.access_token}`;
+    } else {
+      throw "Create account for default user";
     }
   }
 
@@ -149,10 +151,10 @@ function testFunction() {
     }
   }
 
-  const page = randomInt(1, TOTAL_POST / DEFAULT_LIMIT + 1);
+  
 
   let postsRes = http.get(
-    `${API_URL}/api/v1/posts?page=${page}&limit=${DEFAULT_LIMIT}`,
+    `${API_URL}/api/v1/posts?limit=${DEFAULT_LIMIT}`,
     reqOptions
   );
   let postObj = getRandomObj(postsRes.json().results);
@@ -166,7 +168,7 @@ function testFunction() {
     let post = postDetailsRes.json();
 
     let commentsRes = http.get(
-      `${API_URL}/api/v1/posts/${post.slug}/comments?page=1&limit=${DEFAULT_LIMIT}`,
+      `${API_URL}/api/v1/posts/${post.slug}/comments?limit=${DEFAULT_LIMIT}`,
       reqOptions
     );
     let comments = commentsRes.json().results;
@@ -309,13 +311,16 @@ function testFunction() {
 
     sleep(1);
 
-    payload = JSON.stringify({
-      name: randomStr(2, 3),
-    });
-    let topicRes = http.post(`${API_URL}/api/v1/topics`, payload, reqOptions);
-    check(topicRes, {
-      "Topic Created": (r) => r.status === 201,
-    });
+    if (Math.random() <= 0.1) {
+      // 10% of user will create new posts
+      payload = JSON.stringify({
+        name: randomStr(2, 3),
+      });
+      let topicRes = http.post(`${API_URL}/api/v1/topics`, payload, reqOptions);
+      check(topicRes, {
+        "Topic Created": (r) => r.status === 201,
+      });
+    }
 
     let topics = [];
     for (let i = 0; i < randomInt(1, 10); i++) {
