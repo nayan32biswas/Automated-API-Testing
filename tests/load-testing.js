@@ -126,7 +126,7 @@ function testFunction() {
       userData.refresh_token = tokenRes.json().refresh_token;
       reqOptions.headers["Authorization"] = `Bearer ${userData.access_token}`;
     } else {
-      throw "Create account for default user";
+      throw `Error to create username:${userData.username} status:${tokenRes.status}`;
     }
   }
 
@@ -150,8 +150,6 @@ function testFunction() {
       });
     }
   }
-
-  
 
   let postsRes = http.get(
     `${API_URL}/api/v1/posts?limit=${DEFAULT_LIMIT}`,
