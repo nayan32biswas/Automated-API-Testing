@@ -3,7 +3,7 @@ import { sleep, check } from "k6";
 
 export const options = {
   vus: 10,
-  duration: "30s",
+  duration: "10s",
 };
 
 export default function () {
@@ -13,6 +13,8 @@ export default function () {
 const API_URL = __ENV.API_URL;
 const CHARACTERS =
   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+const TOTAL_POST = 100;
+const DEFAULT_LIMIT = 20;
 
 function randomStr(length) {
   let result = "";
@@ -99,8 +101,8 @@ function testFunction() {
     };
   }
 
-  if (Math.random() <= 0.3) {
-    // 30% user will be authenticated user
+  if (Math.random() <= 0.5) {
+    // 50% user will be authenticated user
     if (userData === null) {
       userData = {
         username: __ENV.USERNAME,
@@ -113,30 +115,33 @@ function testFunction() {
       password: userData.password,
     });
 
-    sleep(1)
-    let tokenRes = http.post(`${API_URL}/api/v1/token`, payload);
+    sleep(1);
+    let tokenRes = http.post(`${API_URL}/api/v1/token`, payload, reqOptions);
     check(tokenRes, {
       "Get token": (r) => r.status === 200,
     });
-
-    isAuthenticated = true;
-    userData.access_token = tokenRes.json().access_token;
-    userData.refresh_token = tokenRes.json().refresh_token;
-    reqOptions.headers["Authorization"] = `Bearer ${userData.access_token}`;
+    if (tokenRes.status === 200) {
+      isAuthenticated = true;
+      userData.access_token = tokenRes.json().access_token;
+      userData.refresh_token = tokenRes.json().refresh_token;
+      reqOptions.headers["Authorization"] = `Bearer ${userData.access_token}`;
+    } else {
+      throw `Error to create username:${userData.username} status:${tokenRes.status}`;
+    }
   }
 
   if (isAuthenticated === true) {
     let meRes = http.get(`${API_URL}/api/v1/me`, reqOptions);
     userData.id = meRes.json().id;
 
-    if (Math.random() <= 0.1) {
-      // 10% of authenticated user will update there profile
+    if (Math.random() <= 0.2) {
+      // 20% of authenticated user will update there profile
       payload = JSON.stringify({
         full_name: `${randomStr(6)} ${randomStr(5)}`,
       });
       sleep(1);
       let userUpdateRes = http.patch(
-        `${API_URL}/api/v1/update-user`,
+        `${API_URL}/api/v1/update-me`,
         payload,
         reqOptions
       );
@@ -147,7 +152,7 @@ function testFunction() {
   }
 
   let postsRes = http.get(
-    `${API_URL}/api/v1/posts?page=${randomInt(1, 1000)}&limit=50`,
+    `${API_URL}/api/v1/posts?limit=${DEFAULT_LIMIT}`,
     reqOptions
   );
   let postObj = getRandomObj(postsRes.json().results);
@@ -155,13 +160,13 @@ function testFunction() {
   if (!isEmpty(postObj)) {
     sleep(1);
     let postDetailsRes = http.get(
-      `${API_URL}/api/v1/posts/${postObj.id}`,
+      `${API_URL}/api/v1/posts/${postObj.slug}`,
       reqOptions
     );
     let post = postDetailsRes.json();
 
     let commentsRes = http.get(
-      `${API_URL}/api/v1/posts/${post.id}/comments?page=1&limit=20`,
+      `${API_URL}/api/v1/posts/${post.slug}/comments?limit=${DEFAULT_LIMIT}`,
       reqOptions
     );
     let comments = commentsRes.json().results;
@@ -173,7 +178,7 @@ function testFunction() {
 
       sleep(1);
       let newCommentRes = http.post(
-        `${API_URL}/api/v1/posts/${post.id}/comments`,
+        `${API_URL}/api/v1/posts/${post.slug}/comments`,
         payload,
         reqOptions
       );
@@ -183,9 +188,9 @@ function testFunction() {
       sleep(1);
 
       let comment = newCommentRes.json();
-      if (isEmpty(comments) === false) {
-        comment = getRandomObj(comments);
-      }
+      // if (isEmpty(comments) === false) {
+      //   comment = getRandomObj(comments);
+      // }
 
       let newReplies = [];
 
@@ -195,7 +200,7 @@ function testFunction() {
       for (let i = 0; i < randomInt(1, 5); i++) {
         sleep(1);
         let newReplyRes = http.post(
-          `${API_URL}/api/v1/posts/${post.id}/comments/${comment.id}/replies`,
+          `${API_URL}/api/v1/posts/${post.slug}/comments/${comment.id}/replies`,
           payload,
           reqOptions
         );
@@ -212,7 +217,7 @@ function testFunction() {
 
         sleep(1);
         let updateCommentRes = http.put(
-          `${API_URL}/api/v1/posts/${post.id}/comments/${comment.id}`,
+          `${API_URL}/api/v1/posts/${post.slug}/comments/${comment.id}`,
           payload,
           reqOptions
         );
@@ -230,7 +235,7 @@ function testFunction() {
 
           sleep(0.5);
           let updateReplyRes = http.put(
-            `${API_URL}/api/v1/posts/${post.id}/comments/${comment.id}/replies/${reply.id}`,
+            `${API_URL}/api/v1/posts/${post.slug}/comments/${comment.id}/replies/${reply.id}`,
             payload,
             reqOptions
           );
@@ -251,7 +256,7 @@ function testFunction() {
           // Delete replies before deleting comment
           sleep(0.5);
           let delReplyRes = http.del(
-            `${API_URL}/api/v1/posts/${post.id}/comments/${comment.id}/replies/${reply.id}`,
+            `${API_URL}/api/v1/posts/${post.slug}/comments/${comment.id}/replies/${reply.id}`,
             {},
             reqOptions
           );
@@ -262,7 +267,7 @@ function testFunction() {
 
         sleep(1);
         let delCommentRes = http.del(
-          `${API_URL}/api/v1/posts/${post.id}/comments/${comment.id}`,
+          `${API_URL}/api/v1/posts/${post.slug}/comments/${comment.id}`,
           {},
           reqOptions
         );
@@ -271,28 +276,62 @@ function testFunction() {
         });
       }
     }
+
+    if (isAuthenticated && Math.random() <= 0.8) {
+      // 80% of authenticated user will react on post
+      sleep(1);
+      let newReactionRes = http.post(
+        `${API_URL}/api/v1/posts/${post.slug}/reactions`,
+        {},
+        reqOptions
+      );
+      check(newReactionRes, {
+        "Reaction added": (r) => r.status === 201,
+      });
+
+      if (Math.random() <= 0.3) {
+        // 30% of reaction will be deleted
+        sleep(1);
+        let newReactionRes = http.del(
+          `${API_URL}/api/v1/posts/${post.slug}/reactions`,
+          {},
+          reqOptions
+        );
+        check(newReactionRes, {
+          "Reaction removed": (r) => r.status === 200,
+        });
+      }
+    }
   }
 
-  if (isAuthenticated === true && Math.random() <= 0.5) {
-    // 10% or user will create new posts
-    
+  if (isAuthenticated === true && Math.random() <= 0.3) {
+    // 30% of user will create new posts
+
     sleep(1);
-    let tag_ids = [];
-    for (let i = 0; i < randomInt(1, 10); i++) {
+
+    if (Math.random() <= 0.1) {
+      // 10% of user will create new posts
       payload = JSON.stringify({
         name: randomStr(2, 3),
       });
-      let tagRes = http.post(`${API_URL}/api/v1/tags`, payload, reqOptions);
-      tag_ids.push(tagRes.json().id);
+      let topicRes = http.post(`${API_URL}/api/v1/topics`, payload, reqOptions);
+      check(topicRes, {
+        "Topic Created": (r) => r.status === 201,
+      });
+    }
+
+    let topics = [];
+    for (let i = 0; i < randomInt(1, 10); i++) {
+      topics.push(randomStr(2, 3));
     }
 
     payload = JSON.stringify({
       title: getDescription(randomInt(2, 10)),
-      publish_at: new Date().toISOString(),
+      publish_now: Math.random() <= 0.5,
       short_description: null,
       description: getDescription(randomInt(10, 50)),
       cover_image: null,
-      tag_ids: tag_ids,
+      topics: topics,
     });
 
     sleep(1);
@@ -303,7 +342,7 @@ function testFunction() {
     let post = newPostRes.json();
 
     if (Math.random() <= 0.5) {
-      // 50% of created post will be updated
+      // 50% of created posts will be updated
       for (let i = 0; i < randomInt(0, 3); i++) {
         payload = JSON.stringify({
           title: getDescription(randomInt(2, 10)),
@@ -311,7 +350,7 @@ function testFunction() {
 
         sleep(1);
         let updatePostRes = http.patch(
-          `${API_URL}/api/v1/posts/${post.id}`,
+          `${API_URL}/api/v1/posts/${post.slug}`,
           payload,
           reqOptions
         );
@@ -321,12 +360,12 @@ function testFunction() {
       }
     }
 
-    if (Math.random() <= 0.5) {
-      // 10% of created post will be deleted
+    if (Math.random() <= 0.1) {
+      // 10% of created posts will be deleted
 
       sleep(1);
       let delPostRes = http.del(
-        `${API_URL}/api/v1/posts/${post.id}`,
+        `${API_URL}/api/v1/posts/${post.slug}`,
         {},
         reqOptions
       );
