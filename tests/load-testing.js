@@ -11,10 +11,33 @@ export default function () {
 }
 
 const API_URL = __ENV.API_URL;
+const DEFAULT_USERNAME = __ENV.USERNAME;
+const DEFAULT_PASSWORD = __ENV.PASSWORD;
+
 const CHARACTERS =
   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-const TOTAL_POST = 100;
 const DEFAULT_LIMIT = 20;
+
+const V1_URL = `${API_URL}/api/v1`;
+const ENDPOINTS = {
+  // User
+  LOGIN_URL: `${V1_URL}/token`,
+  REGISTRATION_URL: `${V1_URL}/registration`,
+  ME_URL: `${V1_URL}/users`,
+  USER_UPDATE_URL: `${V1_URL}/users/update`,
+  // Posts
+  TOPICS_URL: `${V1_URL}/topics`,
+  POSTS_URL: `${V1_URL}/posts`,
+  POST_DETAILS_URL: (slug) => `${V1_URL}/posts/${slug}`,
+  POST_REACTIONS_URL: (slug) => `${V1_URL}/posts/${slug}/reactions`,
+  COMMENTS_URL: (slug) => `${V1_URL}/posts/${slug}/comments`,
+  COMMENTS_DETAILS_URL: (slug, commentId) =>
+    `${V1_URL}/posts/${slug}/comments/${commentId}`,
+  REPLIES_URL: (slug, commentId) =>
+    `${V1_URL}/posts/${slug}/comments/${commentId}/replies`,
+  REPLIES_DETAILS_URL: (slug, commentId, replyId) =>
+    `${V1_URL}/posts/${slug}/comments/${commentId}/replies/${replyId}`,
+};
 
 function randomStr(length) {
   let result = "";
@@ -87,11 +110,7 @@ function testFunction() {
       full_name: `${randomStr(6)} ${randomStr(5)}`,
     });
 
-    let regRes = http.post(
-      `${API_URL}/api/v1/registration`,
-      payload,
-      reqOptions
-    );
+    let regRes = http.post(ENDPOINTS.REGISTRATION_URL, payload, reqOptions);
     check(regRes, {
       "User Created": (r) => r.status === 201,
     });
@@ -105,8 +124,8 @@ function testFunction() {
     // 50% user will be authenticated user
     if (userData === null) {
       userData = {
-        username: __ENV.USERNAME,
-        password: __ENV.PASSWORD,
+        username: DEFAULT_USERNAME,
+        password: DEFAULT_PASSWORD,
       };
     }
 
@@ -116,7 +135,7 @@ function testFunction() {
     });
 
     sleep(1);
-    let tokenRes = http.post(`${API_URL}/api/v1/token`, payload, reqOptions);
+    let tokenRes = http.post(ENDPOINTS.LOGIN_URL, payload, reqOptions);
     check(tokenRes, {
       "Get token": (r) => r.status === 200,
     });
@@ -131,7 +150,7 @@ function testFunction() {
   }
 
   if (isAuthenticated === true) {
-    let meRes = http.get(`${API_URL}/api/v1/me`, reqOptions);
+    let meRes = http.get(ENDPOINTS.ME_URL, reqOptions);
     userData.id = meRes.json().id;
 
     if (Math.random() <= 0.2) {
@@ -141,7 +160,7 @@ function testFunction() {
       });
       sleep(1);
       let userUpdateRes = http.patch(
-        `${API_URL}/api/v1/update-me`,
+        ENDPOINTS.USER_UPDATE_URL,
         payload,
         reqOptions
       );
@@ -152,7 +171,7 @@ function testFunction() {
   }
 
   let postsRes = http.get(
-    `${API_URL}/api/v1/posts?limit=${DEFAULT_LIMIT}`,
+    `${ENDPOINTS.POSTS_URL}?limit=${DEFAULT_LIMIT}`,
     reqOptions
   );
   let postObj = getRandomObj(postsRes.json().results);
@@ -160,13 +179,13 @@ function testFunction() {
   if (!isEmpty(postObj)) {
     sleep(1);
     let postDetailsRes = http.get(
-      `${API_URL}/api/v1/posts/${postObj.slug}`,
+      ENDPOINTS.POST_DETAILS_URL(postObj.slug),
       reqOptions
     );
     let post = postDetailsRes.json();
 
     let commentsRes = http.get(
-      `${API_URL}/api/v1/posts/${post.slug}/comments?limit=${DEFAULT_LIMIT}`,
+      `${ENDPOINTS.POST_DETAILS_URL(post.slug)}?limit=${DEFAULT_LIMIT}`,
       reqOptions
     );
     let comments = commentsRes.json().results;
@@ -178,7 +197,7 @@ function testFunction() {
 
       sleep(1);
       let newCommentRes = http.post(
-        `${API_URL}/api/v1/posts/${post.slug}/comments`,
+        ENDPOINTS.COMMENTS_URL(post.slug),
         payload,
         reqOptions
       );
@@ -200,7 +219,7 @@ function testFunction() {
       for (let i = 0; i < randomInt(1, 5); i++) {
         sleep(1);
         let newReplyRes = http.post(
-          `${API_URL}/api/v1/posts/${post.slug}/comments/${comment.id}/replies`,
+          ENDPOINTS.REPLIES_URL(post.slug, comment.id),
           payload,
           reqOptions
         );
@@ -217,7 +236,7 @@ function testFunction() {
 
         sleep(1);
         let updateCommentRes = http.put(
-          `${API_URL}/api/v1/posts/${post.slug}/comments/${comment.id}`,
+          ENDPOINTS.COMMENTS_DETAILS_URL(post.slug, comment.id),
           payload,
           reqOptions
         );
@@ -235,7 +254,7 @@ function testFunction() {
 
           sleep(0.5);
           let updateReplyRes = http.put(
-            `${API_URL}/api/v1/posts/${post.slug}/comments/${comment.id}/replies/${reply.id}`,
+            ENDPOINTS.REPLIES_DETAILS_URL(post.slug, comment.id, reply.id),
             payload,
             reqOptions
           );
@@ -256,7 +275,7 @@ function testFunction() {
           // Delete replies before deleting comment
           sleep(0.5);
           let delReplyRes = http.del(
-            `${API_URL}/api/v1/posts/${post.slug}/comments/${comment.id}/replies/${reply.id}`,
+            ENDPOINTS.REPLIES_DETAILS_URL(post.slug, comment.id, reply.id),
             {},
             reqOptions
           );
@@ -267,7 +286,7 @@ function testFunction() {
 
         sleep(1);
         let delCommentRes = http.del(
-          `${API_URL}/api/v1/posts/${post.slug}/comments/${comment.id}`,
+          ENDPOINTS.COMMENTS_DETAILS_URL(post.slug, comment.id),
           {},
           reqOptions
         );
@@ -281,7 +300,7 @@ function testFunction() {
       // 80% of authenticated user will react on post
       sleep(1);
       let newReactionRes = http.post(
-        `${API_URL}/api/v1/posts/${post.slug}/reactions`,
+        ENDPOINTS.POST_REACTIONS_URL(post.slug),
         {},
         reqOptions
       );
@@ -293,7 +312,7 @@ function testFunction() {
         // 30% of reaction will be deleted
         sleep(1);
         let newReactionRes = http.del(
-          `${API_URL}/api/v1/posts/${post.slug}/reactions`,
+          ENDPOINTS.POST_REACTIONS_URL(post.slug),
           {},
           reqOptions
         );
@@ -314,7 +333,7 @@ function testFunction() {
       payload = JSON.stringify({
         name: randomStr(2, 3),
       });
-      let topicRes = http.post(`${API_URL}/api/v1/topics`, payload, reqOptions);
+      let topicRes = http.post(ENDPOINTS.TOPICS_URL, payload, reqOptions);
       check(topicRes, {
         "Topic Created": (r) => r.status === 201,
       });
@@ -328,14 +347,14 @@ function testFunction() {
     payload = JSON.stringify({
       title: getDescription(randomInt(2, 10)),
       publish_now: Math.random() <= 0.5,
-      short_description: null,
-      description: getDescription(randomInt(10, 50)),
+      short_description: "Short description",
+      description: { content: getDescription(randomInt(10, 50)) },
       cover_image: null,
       topics: topics,
     });
 
     sleep(1);
-    let newPostRes = http.post(`${API_URL}/api/v1/posts`, payload, reqOptions);
+    let newPostRes = http.post(ENDPOINTS.POSTS_URL, payload, reqOptions);
     check(newPostRes, {
       "Post Created": (r) => r.status === 201,
     });
@@ -346,11 +365,12 @@ function testFunction() {
       for (let i = 0; i < randomInt(0, 3); i++) {
         payload = JSON.stringify({
           title: getDescription(randomInt(2, 10)),
+          short_description: "Short description",
         });
 
         sleep(1);
         let updatePostRes = http.patch(
-          `${API_URL}/api/v1/posts/${post.slug}`,
+          ENDPOINTS.POST_DETAILS_URL(post.slug),
           payload,
           reqOptions
         );
@@ -365,7 +385,7 @@ function testFunction() {
 
       sleep(1);
       let delPostRes = http.del(
-        `${API_URL}/api/v1/posts/${post.slug}`,
+        ENDPOINTS.POST_DETAILS_URL(post.slug),
         {},
         reqOptions
       );
@@ -375,5 +395,5 @@ function testFunction() {
     }
   }
 
-  sleep(1);
+  sleep(0.1);
 }
