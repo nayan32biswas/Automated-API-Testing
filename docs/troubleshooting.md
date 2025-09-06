@@ -17,8 +17,8 @@ services:
 ## Fix the server access issue for the backend server running in Kubernetes
 
 - Assuming the backend app is running in Kubernetes with the help of minikube.
-- Using ingress to expose the backend server and update the host device `/etc/hosts` with value `<minikube-ip> local.blog-app.com`.
-- Now the test server cannot access the domain `local.blog-app.com`.
+- Using ingress to expose the backend server and update the host device `/etc/hosts` with value `<minikube-ip> blog.example.com`.
+- Now the test server cannot access the domain `blog.example.com`.
 
 **Solution**:
 
@@ -30,3 +30,5 @@ networks:
 ```
 
 - Add the `network_mode: "host"` to the k6 service in the `docker-compose.yml` file. This will give the K6 service access to the host machine `/etc/hosts`.
+  - Update env key of `K6_OUT` and `API_URL` according to configuration.
+  - We are allow to **localhost** from the docker container if the `network_mode` is `host`.

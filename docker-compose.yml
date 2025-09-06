@@ -37,13 +37,16 @@ services:
     container_name: load_test_k6
     depends_on:
       - grafana
-    networks:
-      - k6
     ports:
       - "6565:6565"
     env_file: .env
     volumes:
       - "./tests:/tests"
+    networks:
+      - k6
+    # network_mode: "host"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
 volumes:
   influx-db:
